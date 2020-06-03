@@ -46,13 +46,13 @@ def load_feature_construct_H(data_dir,
     if use_mvcnn_feature_for_structure:
         tmp = hgut.construct_H_with_KNN(mvcnn_ft, K_neigs=K_neigs,
                                         split_diff_scale=split_diff_scale,
-                                        is_probH=is_probH, m_prob=m_prob)
+                                        is_probH=is_probH, m_prob=m_prob) # 用k-nn 算法生成邻接矩阵 H（由距离矩阵生成 [2012,2012]
         H = hgut.hyperedge_concat(H, tmp)
     if use_gvcnn_feature_for_structure:
         tmp = hgut.construct_H_with_KNN(gvcnn_ft, K_neigs=K_neigs,
                                         split_diff_scale=split_diff_scale,
-                                        is_probH=is_probH, m_prob=m_prob)
-        H = hgut.hyperedge_concat(H, tmp)
+                                        is_probH=is_probH, m_prob=m_prob) # [2012,2012]
+        H = hgut.hyperedge_concat(H, tmp) #[2012,4024]
     if H is None:
         raise Exception('None feature to construct hypergraph incidence matrix!')
 

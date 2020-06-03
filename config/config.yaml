@@ -4,7 +4,7 @@
 
 #configure feature path
 # **** please must modify the data_root before first running ****
-data_root: &d_r /home/fengyifan/data/features
+data_root: &d_r ../data/hgnn
 modelnet40_ft: !join [*d_r, ModelNet40_mvcnn_gvcnn.mat]
 ntu2012_ft: !join [*d_r, NTU2012_mvcnn_gvcnn.mat]
 
@@ -25,8 +25,8 @@ use_gvcnn_feature_for_structure: True
 #Model
 #--------------------------------------------------
 # select the dataset you use, ModelNet40 or NTU2012
-on_dataset: &o_d ModelNet40
-#on_dataset: &o_d NTU2012
+#on_dataset: &o_d ModelNet40
+on_dataset: &o_d NTU2012
 #--------------------------------------------------
 
 #---------------------------------------
@@ -39,14 +39,14 @@ use_gvcnn_feature: True
 #Result
 # configure result path
 # **** please must modify the result_root before first running ****
-result_root: &r_r /home/fengyifan/result/hgnn
+result_root: &r_r ../results/hgnn
 result_sub_folder: !join [*r_r, !concat [ *g_t, _, *o_d ]]
 ckpt_folder: !join [*r_r, ckpt]
 
 
 #Train
-max_epoch: 600
-n_hid: 128
+max_epoch: 2
+n_hid: 32
 lr: 0.001
 milestones: [100]
 gamma: 0.9

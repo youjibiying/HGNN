@@ -24,12 +24,12 @@ fts, lbls, idx_train, idx_test, H = \
                              use_gvcnn_feature=cfg['use_gvcnn_feature'],
                              use_mvcnn_feature_for_structure=cfg['use_mvcnn_feature_for_structure'],
                              use_gvcnn_feature_for_structure=cfg['use_gvcnn_feature_for_structure'])
-G = hgut.generate_G_from_H(H)
+G = hgut.generate_G_from_H(H) # D_v^1/2 H W D_e^-1 H.T D_v^-1/2
 n_class = int(lbls.max()) + 1
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 # transform data to device
-fts = torch.Tensor(fts).to(device)
+fts = torch.Tensor(fts).to(device) # features -> fts
 lbls = torch.Tensor(lbls).squeeze().long().to(device)
 G = torch.Tensor(G).to(device)
 idx_train = torch.Tensor(idx_train).long().to(device)
@@ -50,7 +50,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, print_fre
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
-                scheduler.step()
+                # scheduler.step()
                 model.train()  # Set model to training mode
             else:
                 model.eval()  # Set model to evaluate mode
@@ -71,6 +71,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, print_fre
                 if phase == 'train':
                     loss.backward()
                     optimizer.step()
+                    scheduler.step()
 
             # statistics
             running_loss += loss.item() * fts.size(0)
@@ -113,7 +114,7 @@ def _main():
     model_ft = HGNN(in_ch=fts.shape[1],
                     n_class=n_class,
                     n_hid=cfg['n_hid'],
-                    dropout=cfg['drop_out'])
+                    dropout=cfg['drop_out']) # 两层卷积
     model_ft = model_ft.to(device)
 
     optimizer = optim.Adam(model_ft.parameters(), lr=cfg['lr'],

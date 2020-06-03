@@ -11,7 +11,7 @@ class HGNN(nn.Module):
         self.hgc2 = HGNN_conv(n_hid, n_class)
 
     def forward(self, x, G):
-        x = F.relu(self.hgc1(x, G))
+        x = F.relu(self.hgc1(x, G)) # G*x*\theta
         x = F.dropout(x, self.dropout)
         x = self.hgc2(x, G)
         return x

@@ -15,6 +15,7 @@ def Eu_dis(x):
                 D: Dimension of the feature
     :return: N X N distance matrix
     """
+    # np.multiply(np.mat(A), np.mat(B))  # 矩阵对应元素位置相乘，利用np.mat()将数组转换为矩阵
     x = np.mat(x)
     aa = np.sum(np.multiply(x, x), 1)
     ab = x * x.T
@@ -86,7 +87,7 @@ def generate_G_from_H(H, variable_weight=False):
     :return: G
     """
     if type(H) != list:
-        return _generate_G_from_H(H, variable_weight)
+        return _generate_G_from_H(H, variable_weight) # D_v^1/2 H W D_e^-1 H.T D_v^-1/2
     else:
         G = []
         for sub_H in H:
@@ -102,16 +103,16 @@ def _generate_G_from_H(H, variable_weight=False):
     :return: G
     """
     H = np.array(H)
-    n_edge = H.shape[1]
+    n_edge = H.shape[1] # 4024
     # the weight of the hyperedge
-    W = np.ones(n_edge)
+    W = np.ones(n_edge) # 使用权重为1
     # the degree of the node
-    DV = np.sum(H * W, axis=1)
+    DV = np.sum(H * W, axis=1) # [2012]数组*是对应位置相乘，矩阵则是矩阵乘法 https://blog.csdn.net/TeFuirnever/article/details/88915383
     # the degree of the hyperedge
-    DE = np.sum(H, axis=0)
+    DE = np.sum(H, axis=0) # [4024]
 
-    invDE = np.mat(np.diag(np.power(DE, -1)))
-    DV2 = np.mat(np.diag(np.power(DV, -0.5)))
+    invDE = np.mat(np.diag(np.power(DE, -1))) # D_e ^-1
+    DV2 = np.mat(np.diag(np.power(DV, -0.5))) # D_v^-1/2
     W = np.mat(np.diag(W))
     H = np.mat(H)
     HT = H.T
@@ -121,7 +122,7 @@ def _generate_G_from_H(H, variable_weight=False):
         invDE_HT_DV2 = invDE * HT * DV2
         return DV2_H, W, invDE_HT_DV2
     else:
-        G = DV2 * H * W * invDE * HT * DV2
+        G = DV2 * H * W * invDE * HT * DV2 # D_v^1/2 H W D_e^-1 H.T D_v^-1/2
         return G
 
 
@@ -141,14 +142,14 @@ def construct_H_with_KNN_from_distance(dis_mat, k_neig, is_probH=True, m_prob=1)
     for center_idx in range(n_obj):
         dis_mat[center_idx, center_idx] = 0
         dis_vec = dis_mat[center_idx]
-        nearest_idx = np.array(np.argsort(dis_vec)).squeeze()
+        nearest_idx = np.array(np.argsort(dis_vec)).squeeze() # argsort函数返回的是数组值从小到大的索引值
         avg_dis = np.average(dis_vec)
-        if not np.any(nearest_idx[:k_neig] == center_idx):
-            nearest_idx[k_neig - 1] = center_idx
+        if not np.any(nearest_idx[:k_neig] == center_idx): # any()查看两矩阵是否有一个对应元素相等
+            nearest_idx[k_neig - 1] = center_idx #如果k领域里没有当前的核心点，则令最后一个最后当前核心点
 
         for node_idx in nearest_idx[:k_neig]:
             if is_probH:
-                H[node_idx, center_idx] = np.exp(-dis_vec[0, node_idx] ** 2 / (m_prob * avg_dis) ** 2)
+                H[node_idx, center_idx] = np.exp(-dis_vec[0, node_idx] ** 2 / (m_prob * avg_dis) ** 2) # 产生概率阵
             else:
                 H[node_idx, center_idx] = 1.0
     return H
@@ -172,10 +173,10 @@ def construct_H_with_KNN(X, K_neigs=[10], split_diff_scale=False, is_probH=True,
 
     dis_mat = Eu_dis(X)
     H = []
-    for k_neig in K_neigs:
+    for k_neig in K_neigs:# 如果使用多个领域构成的图，则下面会拼接在一起
         H_tmp = construct_H_with_KNN_from_distance(dis_mat, k_neig, is_probH, m_prob)
         if not split_diff_scale:
-            H = hyperedge_concat(H, H_tmp)
+            H = hyperedge_concat(H, H_tmp) # H 拼接
         else:
             H.append(H_tmp)
     return H

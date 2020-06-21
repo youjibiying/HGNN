@@ -5,6 +5,7 @@
 # Date: November 2018
 # --------------------------------------------------------
 import numpy as np
+import scipy.sparse as sp
 
 
 def Eu_dis(x):
@@ -87,7 +88,7 @@ def generate_G_from_H(H, variable_weight=False):
     :return: G
     """
     if type(H) != list:
-        return _generate_G_from_H(H, variable_weight) # D_v^1/2 H W D_e^-1 H.T D_v^-1/2
+        return _generate_G_from_H(H, variable_weight)  # D_v^1/2 H W D_e^-1 H.T D_v^-1/2
     else:
         G = []
         for sub_H in H:
@@ -103,16 +104,20 @@ def _generate_G_from_H(H, variable_weight=False):
     :return: G
     """
     H = np.array(H)
-    n_edge = H.shape[1] # 4024
+    n_edge = H.shape[1]  # 4024
     # the weight of the hyperedge
-    W = np.ones(n_edge) # 使用权重为1
+    W = np.ones(n_edge)  # 使用权重为1
     # the degree of the node
-    DV = np.sum(H * W, axis=1) # [2012]数组*是对应位置相乘，矩阵则是矩阵乘法 https://blog.csdn.net/TeFuirnever/article/details/88915383
+    DV = np.sum(H * W, axis=1)  # [2012]数组*是对应位置相乘，矩阵则是矩阵乘法 https://blog.csdn.net/TeFuirnever/article/details/88915383
     # the degree of the hyperedge
-    DE = np.sum(H, axis=0) # [4024]
+    DE = np.sum(H, axis=0)  # [4024]
 
-    invDE = np.mat(np.diag(np.power(DE, -1))) # D_e ^-1
-    DV2 = np.mat(np.diag(np.power(DV, -0.5))) # D_v^-1/2
+    invDE = np.mat(np.diag(np.power(DE, -1)))
+    invDE[np.isinf(invDE)] = 0  # D_e ^-1
+    invDV = np.power(DV, -0.5)
+    invDV[np.isinf(invDV)] = 0
+    DV2 = np.mat(np.diag(invDV))  # D_v^-1/2
+
     W = np.mat(np.diag(W))
     H = np.mat(H)
     HT = H.T
@@ -122,11 +127,11 @@ def _generate_G_from_H(H, variable_weight=False):
         invDE_HT_DV2 = invDE * HT * DV2
         return DV2_H, W, invDE_HT_DV2
     else:
-        G = DV2 * H * W * invDE * HT * DV2 # D_v^1/2 H W D_e^-1 H.T D_v^-1/2
+        G = DV2 * H * W * invDE * HT * DV2  # D_v^1/2 H W D_e^-1 H.T D_v^-1/2
         return G
 
 
-def construct_H_with_KNN_from_distance(dis_mat, k_neig, is_probH=True, m_prob=1):
+def construct_H_with_KNN_from_distance(dis_mat, k_neig, is_probH=True, m_prob=1, percent=1):
     """
     construct hypregraph incidence matrix from hypergraph node distance matrix
     :param dis_mat: node distance matrix
@@ -135,27 +140,43 @@ def construct_H_with_KNN_from_distance(dis_mat, k_neig, is_probH=True, m_prob=1)
     :param m_prob: prob
     :return: N_object X N_hyperedge
     """
+    # if percent >= 1.0:  # percent=0.05
+    #     return self.stub_sampler(normalization, cuda)
+
     n_obj = dis_mat.shape[0]
     # construct hyperedge from the central feature space of each node
     n_edge = n_obj
     H = np.zeros((n_obj, n_edge))
+    nnz = n_edge  # 2012条边
+    if percent <= 1:
+        perm = np.random.permutation(nnz)  # 随机排列
+        preserve_nnz = int(nnz * percent)  # 取出比例为100
+        perm = perm[:preserve_nnz]
+    else:
+        raise ValueError('percent should not larger than 1')
+
     for center_idx in range(n_obj):
+        if center_idx not in perm:  # drop edge
+            continue
         dis_mat[center_idx, center_idx] = 0
         dis_vec = dis_mat[center_idx]
-        nearest_idx = np.array(np.argsort(dis_vec)).squeeze() # argsort函数返回的是数组值从小到大的索引值
+        nearest_idx = np.array(np.argsort(dis_vec)).squeeze()  # argsort函数返回的是数组值从小到大的索引值
         avg_dis = np.average(dis_vec)
-        if not np.any(nearest_idx[:k_neig] == center_idx): # any()查看两矩阵是否有一个对应元素相等
-            nearest_idx[k_neig - 1] = center_idx #如果k领域里没有当前的核心点，则令最后一个最后当前核心点
+        if not np.any(nearest_idx[:k_neig] == center_idx):  # any()查看两矩阵是否有一个对应元素相等
+            nearest_idx[k_neig - 1] = center_idx  # 如果k领域里没有当前的核心点，则令最后一个最后当前核心点
 
         for node_idx in nearest_idx[:k_neig]:
+            # if node_idx in perm: # drop node
+            #     continue
             if is_probH:
-                H[node_idx, center_idx] = np.exp(-dis_vec[0, node_idx] ** 2 / (m_prob * avg_dis) ** 2) # 产生概率阵
+                H[node_idx, center_idx] = np.exp(-dis_vec[0, node_idx] ** 2 / (m_prob * avg_dis) ** 2)  # 产生概率阵
             else:
                 H[node_idx, center_idx] = 1.0
+    H = H[:, perm]
     return H
 
 
-def construct_H_with_KNN(X, K_neigs=[10], split_diff_scale=False, is_probH=True, m_prob=1):
+def cal_distance_map(X):
     """
     init multi-scale hypergraph Vertex-Edge matrix from original node feature matrix
     :param X: N_object x feature_number
@@ -167,16 +188,58 @@ def construct_H_with_KNN(X, K_neigs=[10], split_diff_scale=False, is_probH=True,
     """
     if len(X.shape) != 2:
         X = X.reshape(-1, X.shape[-1])
+    dis_mat = Eu_dis(X)  # 计算欧式距离
+    return dis_mat
 
+
+def construct_H_with_KNN(dis_mat, K_neigs, split_diff_scale=False, is_probH=True, m_prob=1, percent=1):
     if type(K_neigs) == int:
         K_neigs = [K_neigs]
-
-    dis_mat = Eu_dis(X)
     H = []
-    for k_neig in K_neigs:# 如果使用多个领域构成的图，则下面会拼接在一起
-        H_tmp = construct_H_with_KNN_from_distance(dis_mat, k_neig, is_probH, m_prob)
+    for k_neig in K_neigs:  # 如果使用多个领域构成的图，则下面会拼接在一起
+        H_tmp = construct_H_with_KNN_from_distance(dis_mat, k_neig, is_probH, m_prob, percent=percent)
         if not split_diff_scale:
-            H = hyperedge_concat(H, H_tmp) # H 拼接
+            H = hyperedge_concat(H, H_tmp)  # H 拼接
         else:
             H.append(H_tmp)
     return H
+
+
+def _edge_dict_to_H(edge_dict, percent=1):
+    """
+    calculate H from edge_list
+    :param edge_dict: edge_list[i] = adjacent indices of index i
+    :return: H, (n_nodes, n_nodes) numpy ndarray
+    """
+    n_nodes = len(edge_dict)
+    H = np.zeros(shape=(n_nodes, n_nodes))
+    nnz = n_nodes  # 10556条边
+    perm = np.random.permutation(nnz)  # 随机排列
+    preserve_nnz = int(nnz * percent)  # 取出比例为527条
+    perm = perm[:preserve_nnz]  # 对随机排列的边取出 前527条 array([1950, 8129, 8315, 1360,..., 7676, 9025, 5400])
+    for center_id, adj_list in enumerate(edge_dict):
+        if center_id not in perm:
+            continue
+        H[center_id, center_id] = 1.0
+        for adj_id in adj_list:
+            H[adj_id, center_id] = 1.0
+    H = H[:, perm]
+    return H
+
+
+def adj_to_H(adj, percent=1):
+    adj = sp.coo_matrix(adj)
+    if percent >= 1.0:  # percent=0.05
+        raise ValueError(f"wrong")
+
+    nnz = adj.nnz  # 10556条边
+    perm = np.random.permutation(nnz)  # 随机排列
+    preserve_nnz = int(nnz * percent)  # 取出比例为527条
+    perm = perm[:preserve_nnz]  # 对随机排列的边取出 前527条 array([1950, 8129, 8315, 1360,..., 7676, 9025, 5400])
+    r_adj = sp.coo_matrix((adj.data[perm],  # coo矩阵中[row ,col. data] 这三个向量分别存储，维度 train_adj.data [1,10556]
+                           (adj.row[perm],  # 维度 train_adj.row [1,10556]
+                            adj.col[perm])),  # train_adj.col [1,10556]
+                          shape=adj.shape)  # 构建只有preserve_nzz条边的sparse adj
+    H = r_adj.todense()  # 标准化 在normalization.py中 # [2708,2708]
+    H=H.T
+    return np.array(H, dtype=np.float32)  # 返回进行处理后的

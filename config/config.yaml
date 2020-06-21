@@ -7,7 +7,8 @@
 data_root: &d_r ../data/hgnn
 modelnet40_ft: !join [*d_r, ModelNet40_mvcnn_gvcnn.mat]
 ntu2012_ft: !join [*d_r, NTU2012_mvcnn_gvcnn.mat]
-
+activate_dataset: cora
+citation_root: !join [*d_r, dhgnn]
 
 #Hypergraph
 graph_type: &g_t hypergraph
@@ -35,18 +36,20 @@ use_mvcnn_feature: False
 use_gvcnn_feature: True
 #---------------------------------------
 
-
 #Result
 # configure result path
 # **** please must modify the result_root before first running ****
-result_root: &r_r ../results/hgnn
+result_root: &r_r ../model/hgnn/cora
 result_sub_folder: !join [*r_r, !concat [ *g_t, _, *o_d ]]
 ckpt_folder: !join [*r_r, ckpt]
 
 
+#hypergraph construction
+add_self_loop: True
+
 #Train
-max_epoch: 2
-n_hid: 32
+max_epoch: 800
+n_hid: 128
 lr: 0.001
 milestones: [100]
 gamma: 0.9
@@ -55,3 +58,7 @@ print_freq: 50
 weight_decay: 0.0005
 decay_step: 200
 decay_rate: 0.7
+nbaseblocklayer: 8
+tensorboard: True
+#tensorboard: False
+percent: 0.4

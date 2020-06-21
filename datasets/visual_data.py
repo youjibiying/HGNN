@@ -42,18 +42,34 @@ def load_feature_construct_H(data_dir,
 
     # construct hypergraph incidence matrix
     print('Constructing hypergraph incidence matrix! \n(It may take several minutes! Please wait patiently!)')
+    mvcnn_dist, gvcnn_dist = None, None
+    if use_mvcnn_feature_for_structure:
+        mvcnn_dist = hgut.cal_distance_map(mvcnn_ft)
+    if use_gvcnn_feature_for_structure:
+        gvcnn_dist = hgut.cal_distance_map(mvcnn_ft)
+    if mvcnn_dist is None and gvcnn_dist is None:
+        raise Exception('None feature to construct hypergraph incidence matrix!')
+
+    return fts, lbls, idx_train, idx_test, mvcnn_dist, gvcnn_dist
+
+
+def randomedge_sample_H(mvcnn_dist, gvcnn_dist, K_neigs=[10], is_probH=True,m_prob=1,percent=1,
+                        split_diff_scale=False, use_mvcnn_feature_for_structure=False,
+                        use_gvcnn_feature_for_structure=True):
+    # construct hypergraph incidence matrix
+    # print('Constructing hypergraph incidence matrix! \n(It may take several minutes! Please wait patiently!)')
     H = None
     if use_mvcnn_feature_for_structure:
-        tmp = hgut.construct_H_with_KNN(mvcnn_ft, K_neigs=K_neigs,
-                                        split_diff_scale=split_diff_scale,
-                                        is_probH=is_probH, m_prob=m_prob) # 用k-nn 算法生成邻接矩阵 H（由距离矩阵生成 [2012,2012]
+        tmp = hgut.construct_H_with_KNN(mvcnn_dist, K_neigs=K_neigs,
+                                    split_diff_scale=split_diff_scale,
+                                    is_probH=is_probH, m_prob=m_prob,percent=percent)  # 用k-nn 算法生成邻接矩阵 H（由距离矩阵生成 [2012,2012]
         H = hgut.hyperedge_concat(H, tmp)
     if use_gvcnn_feature_for_structure:
-        tmp = hgut.construct_H_with_KNN(gvcnn_ft, K_neigs=K_neigs,
+        tmp = hgut.construct_H_with_KNN(gvcnn_dist, K_neigs=K_neigs,
                                         split_diff_scale=split_diff_scale,
-                                        is_probH=is_probH, m_prob=m_prob) # [2012,2012]
-        H = hgut.hyperedge_concat(H, tmp) #[2012,4024]
+                                        is_probH=is_probH, m_prob=m_prob,percent=percent)  # [2012,2012]
+        H = hgut.hyperedge_concat(H, tmp)  # [2012,4024]
     if H is None:
         raise Exception('None feature to construct hypergraph incidence matrix!')
 
-    return fts, lbls, idx_train, idx_test, H
+    return H

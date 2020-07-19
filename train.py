@@ -68,8 +68,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, print_fre
 
     for epoch in range(num_epochs):
         if cfg["activate_dataset"] == 'cora':
-            # H = hgut._edge_dict_to_H(edge_dict, cfg['percent'])  # 由邻接表生成连接矩阵
-            H = hgut.adj_to_H(adj, cfg['percent'])
+            H = hgut._edge_dict_to_H(edge_dict, cfg['percent'])  # 由邻接表生成连接矩阵
+            # H = hgut.adj_to_H(adj, cfg['percent'])
         else:
             H = randomedge_sample_H(mvcnn_dist=mvcnn_dist,
                                     gvcnn_dist=gvcnn_dist,

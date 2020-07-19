@@ -39,7 +39,7 @@ use_gvcnn_feature: True
 #Result
 # configure result path
 # **** please must modify the result_root before first running ****
-result_root: &r_r ../model/hgnn/cora
+result_root: &r_r ../model/hgnn/cora_res
 result_sub_folder: !join [*r_r, !concat [ *g_t, _, *o_d ]]
 ckpt_folder: !join [*r_r, ckpt]
 
@@ -61,4 +61,4 @@ decay_rate: 0.7
 nbaseblocklayer: 8
 tensorboard: True
 #tensorboard: False
-percent: 0.4
+percent: 1.0
